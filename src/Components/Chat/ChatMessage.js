@@ -46,31 +46,46 @@ export default (props) => {
   // const isMyMessage = React.useMemo(() => message.userId === user.id, [user, message]);
   const dispatch = useDispatch();
 
-  const messageUser = React.useMemo(() => users[message.userId], [users, message.userId]);
-  const sentDate = React.useMemo(() => (message.sentDate ? moment(message.sentDate.toDate()) : null), [
-    message.sentDate,
+  const messageUser = React.useMemo(() => users[message.userId], [
+    users,
+    message.userId,
   ]);
+  const sentDate = React.useMemo(
+    () => (message.sentDate ? moment(message.sentDate.toDate()) : null),
+    [message.sentDate]
+  );
 
-  if (messageUser === null) {
-    console.error("Couldn't find the user for this message which should never happen...");
+  if (!messageUser) {
+    console.error(
+      "Couldn't find the user for this message which should never happen..."
+    );
     return null;
   }
   const { firstName, lastName } = messageUser;
 
-  const handleAvatarClick = React.useCallback(() => dispatch(openJoinParticipant(messageUser)), [
-    messageUser,
-    dispatch,
-  ]);
+  const handleAvatarClick = React.useCallback(
+    () => dispatch(openJoinParticipant(messageUser)),
+    [messageUser, dispatch]
+  );
 
   return (
     <Grid container justify="flex-start" className={classes.root}>
       <Grid item className={classes.avatar}>
-        <UserAvatar user={messageUser} size="small" onClick={handleAvatarClick} />
+        <UserAvatar
+          user={messageUser}
+          size="small"
+          onClick={handleAvatarClick}
+        />
       </Grid>
       <Grid item className={classes.messageContainer}>
-        <Typography className={classes.userName} onClick={handleAvatarClick}>{`${firstName} ${lastName}`}</Typography>
+        <Typography
+          className={classes.userName}
+          onClick={handleAvatarClick}
+        >{`${firstName} ${lastName}`}</Typography>
         <Typography className={classes.messageText} color="textSecondary">
-          <Linkify componentDecorator={componentDecorator}>{message.message}</Linkify>
+          <Linkify componentDecorator={componentDecorator}>
+            {message.message}
+          </Linkify>
         </Typography>
         <Typography variant="caption" className={classes.sentDate}>
           {sentDate && sentDate.fromNow()}
