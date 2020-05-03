@@ -1,27 +1,27 @@
 import React, { useEffect, useState, useMemo } from "react";
 // import Layout from "../Layouts/EventSessionLayout";
-import NetworkingRoomContainer from "./NetworkingRoomContainer";
 import { useCollectionData, useDocumentData } from "react-firebase-hooks/firestore";
-import firebase from "../../Modules/firebaseApp";
-import { withRouter } from "react-router-dom";
-import { leaveCall, updateInNetworkingRoom } from "../../Modules/eventSessionOperations";
+import { withRouter, useHistory } from "react-router-dom";
 import { useAuthState } from "react-firebase-hooks/auth";
 import Typography from "@material-ui/core/Typography";
-// import { useBeforeunload } from "react-beforeunload";
 import clsx from "clsx";
-
 import { makeStyles /* useTheme */ } from "@material-ui/styles";
+import moment from "moment";
+import Button from "@material-ui/core/Button";
+import useMediaQuery from "@material-ui/core/useMediaQuery";
+import { useTheme } from "@material-ui/core/styles";
+import { useSelector, useDispatch, shallowEqual } from "react-redux";
+import NetworkingRoomContainer from "./NetworkingRoomContainer";
+import firebase from "../../Modules/firebaseApp";
+import { leaveCall, updateInNetworkingRoom } from "../../Modules/eventSessionOperations";
+// import { useBeforeunload } from "react-beforeunload";
+
 // import { useMediaQuery } from "@material-ui/core";
 import NetworkingSidebar from "./NetworkingSidebar";
 import EventSessionTopbar from "../../Components/EventSession/EventSessionTopbar";
 import ConferenceRoomContainer from "./ConferenceRoomContainer";
 import ConferenceSidebar from "./ConferenceSidebar";
-import * as moment from "moment";
-import Button from "@material-ui/core/Button";
 import Page from "../../Components/Core/Page";
-import useMediaQuery from "@material-ui/core/useMediaQuery";
-import { useTheme } from "@material-ui/core/styles";
-import { useHistory } from "react-router-dom";
 import routes from "../../Config/routes";
 import { initFirebasePresenceSync, keepAlive } from "../../Modules/userOperations";
 import Announcements from "../../Components/EventSession/Announcements";
@@ -35,7 +35,6 @@ import SideMenuIcons from "../../Components/EventSession/SideMenuIcons";
 import ChatPane, { CHAT_DEFAULT_WIDTH } from "../../Components/Chat/ChatPane";
 import EditProfileDialog from "../../Components/EditProfile/EditProfileDialog";
 import EventPageDialog from "../../Components/Event/EventPageDialog";
-import { useSelector, useDispatch, shallowEqual } from "react-redux";
 import { isChatOpen } from "../../Redux/dialogs";
 import ShareEventDialog from "../../Components/Event/ShareEventDialog";
 import FeedbackDialog from "../../Components/EventSession/FeedbackDialog";
@@ -60,6 +59,9 @@ import {
 import useInterval from "../../Hooks/useInterval";
 import JoinParticipantDialog from "../../Components/EventSession/JoinParticipantDialog";
 import SplashScreen from "../../Components/Misc/SplashScreen";
+import JitsiContext from "./JitsiContext";
+import SmallPlayerContainer from "./SmallPlayerContainer";
+import { SMALL_PLAYER_INITIAL_HEIGHT, SMALL_PLAYER_INITIAL_WIDTH } from "../../Utils";
 
 export const SIDE_PANE_WIDTH = 53;
 const LEFT_PANE_WIDTH = 300;
@@ -128,18 +130,31 @@ const useStyles = makeStyles((theme) => ({
     borderLeft: "1px solid rgba(0, 0, 0, 0.12)",
     [theme.breakpoints.down("xs")]: {
       display: "none",
-    },
+    }
+  },
+  smallPlayerContainer: {
+    position: "absolute",
+    bottom: 0,
+    // left: 0,
+    right: SIDE_PANE_WIDTH,
+    zIndex: 1201,
+    height: SMALL_PLAYER_INITIAL_HEIGHT,
+    width: SMALL_PLAYER_INITIAL_WIDTH,
+    padding: theme.spacing(1),
+    // borderTop: "1px solid rgba(0, 0, 0, 0.12)",
   },
 }));
 
 export default withRouter((props) => {
   const dispatch = useDispatch();
 
-  const [userAuth /* , initialising, error */] = useAuthState(firebase.auth());
+  const [userAuth] = useAuthState(firebase.auth());
 
   const [initCompleted, setInitCompleted] = useState(false);
 
   const [jitsiApi, setJitsiApi] = useState(null);
+
+  const [showSmallPlayer, setShowSmallPlayer] = useState(true);
 
   const classes = useStyles();
   const theme = useTheme();
@@ -148,7 +163,7 @@ export default withRouter((props) => {
   const [openSidebar, setOpenSidebar] = useState(false);
   const history = useHistory();
 
-  let [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_WIDTH);
+  const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT_WIDTH);
 
   const chatOpen = useSelector(isChatOpen);
 
@@ -162,8 +177,8 @@ export default withRouter((props) => {
   // });
 
   // -----------------------------------------------------------------------------------------------------
-  let originalSessionId = props.match.params.sessionId;
-  let sessionId = useMemo(() => (originalSessionId ? originalSessionId.toLowerCase() : null), [originalSessionId]);
+  const originalSessionId = props.match.params.sessionId;
+  const sessionId = useMemo(() => (originalSessionId ? originalSessionId.toLowerCase() : null), [originalSessionId]);
   const userId = useMemo(() => (userAuth ? userAuth.uid : null), [userAuth]);
 
   const [lastEventSessionDBJson, setLastEventSessionDBJson] = useState("");
@@ -187,31 +202,31 @@ export default withRouter((props) => {
   const isInConferenceRoom = useMemo(() => userSession && !userSession.inNetworkingRoom, [userSession]);
 
   const [eventSessionDB, loadingSessionDB, errorSessionDB] = useDocumentData(
-    firebase.firestore().collection("eventSessions").doc(sessionId)
+    firebase.firestore().collection("eventSessions").doc(sessionId),
   );
 
   const [eventSessionDetailsDB, loadingSessionDetailsDB, errorSessionDetailsDB] = useDocumentData(
-    firebase.firestore().collection("eventSessionsDetails").doc(sessionId)
+    firebase.firestore().collection("eventSessionsDetails").doc(sessionId),
   );
 
   const [participantsJoinedDB, loadingParticipantsJoinedDB, errorParticipantsJoinedDB] = useCollectionData(
     firebase.firestore().collection("eventSessions").doc(sessionId).collection("participantsJoined"),
     // .where("isOnline", "==", true),
-    { idField: "id" }
+    { idField: "id" },
   );
 
   const [keepALivesDB] = useCollectionData(
     firebase.firestore().collection("eventSessions").doc(sessionId).collection("keepAlive"),
-    { idField: "id" }
+    { idField: "id" },
   );
 
   const [liveGroupsDB, loadingLiveGroupsDB, errorLiveGroupsDB] = useCollectionData(
     firebase.firestore().collection("eventSessions").doc(sessionId).collection("liveGroups"),
-    { idField: "id" }
+    { idField: "id" },
   );
 
   const [usersDB, loadingUsersDB, errorUsersDB] = useCollectionData(
-    firebase.firestore().collection("eventSessions").doc(sessionId).collection("participantsDetails")
+    firebase.firestore().collection("eventSessions").doc(sessionId).collection("participantsDetails"),
   );
   // --- userId ---
   useEffect(() => {
@@ -297,12 +312,12 @@ export default withRouter((props) => {
 
   useEffect(() => {
     if (
-      !stateLoaded &&
-      !loadingUsersDB &&
-      !loadingSessionDB &&
-      !loadingSessionDetailsDB &&
-      !loadingParticipantsJoinedDB &&
-      !loadingLiveGroupsDB
+      !stateLoaded
+      && !loadingUsersDB
+      && !loadingSessionDB
+      && !loadingSessionDetailsDB
+      && !loadingParticipantsJoinedDB
+      && !loadingLiveGroupsDB
     ) {
       dispatch(setStateLoaded(true));
     }
@@ -337,25 +352,27 @@ export default withRouter((props) => {
 
   const isLive = React.useMemo(() => {
     if (
-      !eventSessionDetails ||
-      !eventSessionDetails.eventBeginDate ||
-      !eventSessionDetails.eventOpens ||
-      !eventSessionDetails.eventEndDate ||
-      !eventSessionDetails.eventCloses
+      !eventSessionDetails
+      || !eventSessionDetails.eventBeginDate
+      || !eventSessionDetails.eventOpens
+      || !eventSessionDetails.eventEndDate
+      || !eventSessionDetails.eventCloses
     ) {
       return true;
     }
-    const { eventBeginDate, eventOpens, eventEndDate, eventCloses } = eventSessionDetails;
+    const {
+      eventBeginDate, eventOpens, eventEndDate, eventCloses,
+    } = eventSessionDetails;
 
-    let openMinutes = eventOpens ? Number(eventOpens) : DEFAULT_EVENT_OPEN_MINUTES;
-    let beginDate = moment(eventBeginDate.toDate());
+    const openMinutes = eventOpens ? Number(eventOpens) : DEFAULT_EVENT_OPEN_MINUTES;
+    const beginDate = moment(eventBeginDate.toDate());
 
     let closeMinutes = eventCloses ? Number(eventCloses) : DEFAULT_EVENT_CLOSES_MINUTES;
     let endDate = moment(eventEndDate.toDate());
 
     return (
-      beginDate.subtract(openMinutes, "minutes").isBefore(moment()) &&
-      endDate.add(closeMinutes, "minutes").isAfter(moment())
+      beginDate.subtract(openMinutes, "minutes").isBefore(moment())
+      && endDate.add(closeMinutes, "minutes").isAfter(moment())
     );
   }, [eventSessionDetails]);
 
@@ -366,11 +383,11 @@ export default withRouter((props) => {
   }, [isLive, history, sessionId]);
 
   if (
-    loadingUsersDB ||
-    loadingSessionDB ||
-    loadingSessionDetailsDB ||
-    loadingParticipantsJoinedDB ||
-    loadingLiveGroupsDB
+    loadingUsersDB
+    || loadingSessionDB
+    || loadingSessionDetailsDB
+    || loadingParticipantsJoinedDB
+    || loadingLiveGroupsDB
   ) {
     return <SplashScreen />;
   }
@@ -406,7 +423,7 @@ export default withRouter((props) => {
 
   if (!eventSessionDetails) {
     return (
-      <Page title={"Veertly | Event not found"}>
+      <Page title="Veertly | Event not found">
         <div
           className={clsx({
             [classes.root]: true,
@@ -444,32 +461,30 @@ export default withRouter((props) => {
   }
 
   return (
-    <div
-      className={clsx({
-        [classes.root]: true,
-        [classes.shiftContent]: isDesktop,
-      })}
-    >
-      <Page title={`Veertly | ${eventSessionDetails.title}`}> </Page>
-      <EditProfileDialog /* user={user} eventSession={composedEventSession}  */ />
-      <EventPageDialog /* eventSession={composedEventSession}  */ />
-      <ShareEventDialog /*  eventSession={composedEventSession}  */ />
-      <FeedbackDialog /* eventSession={composedEventSession} myUser={myUser}  */ />
-      <JoinParticipantDialog setIsInConferenceRoom={handleSetIsInConferenceRoom} />
+    <JitsiContext.Provider value={{ jitsiApi, setJitsiApi, showSmallPlayer, setShowSmallPlayer }}>
+      <div
+        className={clsx({
+          [classes.root]: true,
+          [classes.shiftContent]: isDesktop,
+        })}
+      >
+        <Page title={`Veertly | ${eventSessionDetails.title}`}> </Page>
+        <EditProfileDialog /* user={user} eventSession={composedEventSession}  */ />
+        <EventPageDialog /* eventSession={composedEventSession}  */ />
+        <ShareEventDialog /*  eventSession={composedEventSession}  */ />
+        <FeedbackDialog /* eventSession={composedEventSession} myUser={myUser}  */ />
+        <JoinParticipantDialog setIsInConferenceRoom={handleSetIsInConferenceRoom} />
+        
 
-      <EventSessionTopbar
-        isInConferenceRoom={isInConferenceRoom}
-        setIsInConferenceRoom={handleSetIsInConferenceRoom}
-        // isInNetworkingCall={currentGroupId !== null}
-        // isNetworkingAvailable={composedEventSession.isNetworkingAvailable}
-        // eventSession={composedEventSession}
-        // myUser={myUser}
-      />
-      {isLive && (
-        <React.Fragment>
+        <EventSessionTopbar
+          isInConferenceRoom={isInConferenceRoom}
+          setIsInConferenceRoom={handleSetIsInConferenceRoom}
+        />
+        {isLive && (
+        <>
           {/* NETWORKING PANE */}
           {!isInConferenceRoom && (
-            <React.Fragment>
+            <>
               <NetworkingSidebar
                 onClose={handleSidebarClose}
                 open={shouldOpenSidebar}
@@ -480,20 +495,34 @@ export default withRouter((props) => {
                 {!userGroup && (
                   <div className={classes.noCall}>
                     <Typography variant="h6" className={clsx(classes.blueText, classes.emptyMessage)}>
-                      You are not in any <span className={classes.greenText}>conversation</span> yet,
+                      You are not in any
+                      {" "}
+                      <span className={classes.greenText}>conversation</span>
+                      {" "}
+                      yet,
                       <br />
-                      don't be shy and <span className={classes.greenText}>select someone</span> to{" "}
-                      <span className={classes.greenText}>talk</span> to!
+                      don't be shy and
+                      {" "}
+                      <span className={classes.greenText}>select someone</span>
+                      {" "}
+                      to
+                      {" "}
+                      <span className={classes.greenText}>talk</span>
+                      {" "}
+                      to!
                     </Typography>
                   </div>
                 )}
                 {userGroup && <NetworkingRoomContainer jitsiApi={jitsiApi} setJitsiApi={setJitsiApi} />}
               </div>
-            </React.Fragment>
+              {/* <div className={classes.smallPlayerContainer}> */}
+                <SmallPlayerContainer bounds={`.${classes.root}`}/>
+              {/* </div> */}
+            </>
           )}
           {/* CONFERENCE PANE */}
           {isInConferenceRoom && (
-            <React.Fragment>
+            <>
               <ConferenceSidebar
                 onClose={handleSidebarClose}
                 open={shouldOpenSidebar}
@@ -508,11 +537,11 @@ export default withRouter((props) => {
                   // eventSession={composedEventSession}
                   // participantsJoined={participantsJoined}
                   // liveGroups={liveGroups}
-                  jitsiApi={jitsiApi}
-                  setJitsiApi={setJitsiApi}
+                  // jitsiApi={jitsiApi}
+                  // setJitsiApi={setJitsiApi}
                 />
               </div>
-            </React.Fragment>
+            </>
           )}
           <div className={classes.sideMenu}>
             <SideMenuIcons /* eventSession={composedEventSession} user={user}  */ />
@@ -527,8 +556,9 @@ export default withRouter((props) => {
             /* eventSession={composedEventSession} users={users} user={user} */ onResize={(w) => setChatWidth(w)}
           />
           {/* </div> */}
-        </React.Fragment>
-      )}
-    </div>
+        </>
+        )}
+      </div>
+    </JitsiContext.Provider>
   );
 });
