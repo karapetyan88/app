@@ -1,9 +1,13 @@
 import _ from "lodash";
-import { MAX_PARTICIPANTS_GROUP, DEFAULT_OFFLINE_INTERVAL } from "../Config/constants";
+import {
+  MAX_PARTICIPANTS_GROUP,
+  DEFAULT_OFFLINE_INTERVAL
+} from "../Config/constants";
 import * as moment from "moment";
 
 const UPDATE_EVENT_SESSION = "eventSession.UPDATE_EVENT_SESSION";
-const UPDATE_EVENT_SESSION_DETAILS = "eventSession.UPDATE_EVENT_SESSION_DETAILS";
+const UPDATE_EVENT_SESSION_DETAILS =
+  "eventSession.UPDATE_EVENT_SESSION_DETAILS";
 const UPDATE_PARTICIPANTS_JOINED = "eventSession.UPDATE_PARTICIPANTS_JOINED";
 const UPDATE_LIVE_GROUPS = "eventSession.UPDATE_LIVE_GROUPS";
 const UPDATE_USERS = "eventSession.UPDATE_USERS";
@@ -14,6 +18,9 @@ const STATE_LOADED = "eventSession.STATE_LOADED";
 const CROSS_CHECK_KEEP_ALIVES = "eventSession.CROSS_CHECK_KEEP_ALIVES";
 
 const SET_FILTERS = "eventSessions.SET_FILTERS";
+
+const SET_ENABLED_FEATURES = "eventSessions.SET_ENABLED_FEATURES";
+const CLEAR_EVENT_SESSION = "eventSessions.CLEAR_EVENT_SESSION";
 
 const initialState = {
   eventSession: null,
@@ -30,11 +37,15 @@ const initialState = {
   availableParticipantsList: [],
   keepAlives: {},
   filters: {},
+  enabledFeatures: {}
 };
 
 const isStillLive = (keepAlive) =>
   !keepAlive ||
-  (keepAlive.lastSeen && moment(keepAlive.lastSeen.toDate()).add(DEFAULT_OFFLINE_INTERVAL, "ms").isAfter(moment()));
+  (keepAlive.lastSeen &&
+    moment(keepAlive.lastSeen.toDate())
+      .add(DEFAULT_OFFLINE_INTERVAL, "ms")
+      .isAfter(moment()));
 
 const crossCheckLiveGroups = (participantsJoined, liveGroups, keepAlives) => {
   return _.reduce(
@@ -48,6 +59,8 @@ const crossCheckLiveGroups = (participantsJoined, liveGroups, keepAlives) => {
       let newParticipants = {};
       let participants = Object.values(group.participants);
 
+      let { isRoom, isRoomArchived } = group;
+
       for (let i = 0; i < participants.length; i++) {
         let { leftTimestamp, id } = participants[i];
         if (leftTimestamp !== null) {
@@ -57,11 +70,21 @@ const crossCheckLiveGroups = (participantsJoined, liveGroups, keepAlives) => {
         let participantSession = participantsJoined[id];
         let keepAlive = keepAlives[id];
 
-        if (participantSession && participantSession.isOnline && isStillLive(keepAlive)) {
+        if (
+          participantSession &&
+          participantSession.isOnline &&
+          isStillLive(keepAlive)
+        ) {
           newParticipants[id] = participants[i];
         }
       }
       groupResult.participants = newParticipants;
+
+      if (isRoom && !isRoomArchived) {
+        // if it is a room, add
+        result[group.id] = groupResult;
+        return result;
+      }
 
       let numAvailableParticipants = _.size(newParticipants);
 
@@ -80,7 +103,12 @@ const crossCheckLiveGroups = (participantsJoined, liveGroups, keepAlives) => {
   );
 };
 
-const crossCheckParticipantsJoined = (participantsJoined, liveGroups, keepAlives, userId) => {
+const crossCheckParticipantsJoined = (
+  participantsJoined,
+  liveGroups,
+  keepAlives,
+  userId
+) => {
   return _.reduce(
     participantsJoined,
     (result, participant) => {
@@ -109,7 +137,8 @@ const crossCheckParticipantsJoined = (participantsJoined, liveGroups, keepAlives
         participant.groupId !== null &&
         liveGroups &&
         liveGroups[participant.groupId];
-      let isInConferenceRoom = !isInConversation && !participant.inNetworkingRoom;
+      let isInConferenceRoom =
+        !isInConversation && !participant.inNetworkingRoom;
       let isAvailable = !isInConversation && participant.inNetworkingRoom;
 
       participantResult.isInConversation = isInConversation;
@@ -128,21 +157,25 @@ export const eventSessionReducer = (state = initialState, action) => {
     case UPDATE_EVENT_SESSION: {
       return {
         ...state,
-        eventSession: action.eventSession,
+        eventSession: action.eventSession
       };
     }
 
     case UPDATE_EVENT_SESSION_DETAILS: {
       return {
         ...state,
-        eventSessionDetails: action.eventSessionDetails,
+        eventSessionDetails: action.eventSessionDetails
       };
     }
 
     case UPDATE_PARTICIPANTS_JOINED: {
       let newParticipantsJoined = _.keyBy(action.participantsJoined, "id");
 
-      let liveGroups = crossCheckLiveGroups(newParticipantsJoined, state.liveGroupsOriginal, state.keepAlives);
+      let liveGroups = crossCheckLiveGroups(
+        newParticipantsJoined,
+        state.liveGroupsOriginal,
+        state.keepAlives
+      );
       let availableParticipantsList = crossCheckParticipantsJoined(
         newParticipantsJoined,
         liveGroups,
@@ -154,13 +187,17 @@ export const eventSessionReducer = (state = initialState, action) => {
         ...state,
         participantsJoined: newParticipantsJoined,
         availableParticipantsList,
-        liveGroups,
+        liveGroups
       };
     }
 
     case UPDATE_LIVE_GROUPS: {
       let liveGroupsOriginal = _.keyBy(action.liveGroups, "id");
-      let liveGroups = crossCheckLiveGroups(state.participantsJoined, liveGroupsOriginal, state.keepAlives);
+      let liveGroups = crossCheckLiveGroups(
+        state.participantsJoined,
+        liveGroupsOriginal,
+        state.keepAlives
+      );
       let availableParticipantsList = crossCheckParticipantsJoined(
         state.participantsJoined,
         liveGroups,
@@ -171,14 +208,18 @@ export const eventSessionReducer = (state = initialState, action) => {
         ...state,
         liveGroups,
         liveGroupsOriginal,
-        availableParticipantsList,
+        availableParticipantsList
       };
     }
 
     case CROSS_CHECK_KEEP_ALIVES: {
       let newKeepAlives = _.keyBy(action.keepAlives, "id");
 
-      let liveGroups = crossCheckLiveGroups(state.participantsJoined, state.liveGroupsOriginal, newKeepAlives);
+      let liveGroups = crossCheckLiveGroups(
+        state.participantsJoined,
+        state.liveGroupsOriginal,
+        newKeepAlives
+      );
 
       let availableParticipantsList = crossCheckParticipantsJoined(
         state.participantsJoined,
@@ -191,7 +232,7 @@ export const eventSessionReducer = (state = initialState, action) => {
         ...state,
         keepAlives: newKeepAlives,
         liveGroups,
-        availableParticipantsList,
+        availableParticipantsList
       };
     }
 
@@ -200,7 +241,7 @@ export const eventSessionReducer = (state = initialState, action) => {
       return {
         ...state,
         users: newUsers,
-        user: state.userId && newUsers ? newUsers[state.userId] : null,
+        user: state.userId && newUsers ? newUsers[state.userId] : null
       };
     }
 
@@ -208,33 +249,48 @@ export const eventSessionReducer = (state = initialState, action) => {
       return {
         ...state,
         userId: action.userId,
-        user: state.users ? state.users[action.userId] : null,
+        user: state.users ? state.users[action.userId] : null
       };
     }
 
     case STATE_LOADED: {
       return {
         ...state,
-        stateLoaded: action.stateLoaded,
+        stateLoaded: action.stateLoaded
       };
     }
 
     case SET_FILTERS: {
       return {
         ...state,
-        filters: action.filters,
+        filters: action.filters
       };
     }
-
+    case SET_ENABLED_FEATURES: {
+      return {
+        ...state,
+        enabledFeatures: action.enabledFeatures
+      };
+    }
+    case CLEAR_EVENT_SESSION: {
+      return { ...state, ...initialState };
+    }
     default:
       return state;
   }
 };
-export const getSessionId = (store) => (store.eventSession.eventSession ? store.eventSession.eventSession.id : null);
+export const getSessionId = (store) =>
+  store.eventSession.eventSession
+    ? store.eventSession.eventSession.id.toLowerCase()
+    : null;
 export const getEventSession = (store) => store.eventSession.eventSession;
-export const getEventSessionDetails = (store) => store.eventSession.eventSessionDetails;
-export const getParticipantsJoined = (store) => store.eventSession.participantsJoined;
+export const getEventSessionDetails = (store) =>
+  store.eventSession.eventSessionDetails;
+export const getParticipantsJoined = (store) =>
+  store.eventSession.participantsJoined;
 export const getLiveGroups = (store) => store.eventSession.liveGroups;
+export const getLiveGroupsOriginal = (store) =>
+  store.eventSession.liveGroupsOriginal;
 export const getUsers = (store) => store.eventSession.users;
 export const getUserId = (store) => store.eventSession.userId;
 export const getUser = (store) => store.eventSession.user;
@@ -247,14 +303,18 @@ export const getUserSession = (store) =>
 export const getUserGroup = (store) => {
   let userSession = getUserSession(store);
   let { liveGroupsOriginal } = store.eventSession;
-  return userSession && liveGroupsOriginal && userSession.groupId ? liveGroupsOriginal[userSession.groupId] : null;
+  return userSession && liveGroupsOriginal && userSession.groupId
+    ? liveGroupsOriginal[userSession.groupId]
+    : null;
 };
 
 // get current group with only live participants
 export const getUserLiveGroup = (store) => {
   let userSession = getUserSession(store);
   let { liveGroups } = store.eventSession;
-  return userSession && liveGroups && userSession.groupId ? liveGroups[userSession.groupId] : null;
+  return userSession && liveGroups && userSession.groupId
+    ? liveGroups[userSession.groupId]
+    : null;
 };
 export const isInNetworkingRoom = (store) => {
   let userSession = getUserSession(store);
@@ -262,47 +322,66 @@ export const isInNetworkingRoom = (store) => {
 };
 
 export const isStateLoaded = (store) => store.eventSession.stateLoaded === true;
-export const getAvailableParticipantsList = (store) => store.eventSession.availableParticipantsList;
+export const getAvailableParticipantsList = (store) =>
+  store.eventSession.availableParticipantsList;
 export const getFilters = (store) => store.eventSession.filters;
+
+export const getFeatureDetails = (feature) => (store) => {
+  return store.eventSession.enabledFeatures &&
+    store.eventSession.enabledFeatures[feature]
+    ? store.eventSession.enabledFeatures[feature]
+    : null;
+};
+
+////////////////// action creators
 
 export const updateEventSession = (eventSession) => ({
   type: UPDATE_EVENT_SESSION,
-  eventSession,
+  eventSession
 });
 
 export const updateEventSessionDetails = (eventSessionDetails) => ({
   type: UPDATE_EVENT_SESSION_DETAILS,
-  eventSessionDetails,
+  eventSessionDetails
 });
 
 export const updateParticipantsJoined = (participantsJoined) => ({
   type: UPDATE_PARTICIPANTS_JOINED,
-  participantsJoined,
+  participantsJoined
 });
 
 export const updateLiveGroups = (liveGroups) => ({
   type: UPDATE_LIVE_GROUPS,
-  liveGroups,
+  liveGroups
 });
 export const updateUsers = (users) => ({
   type: UPDATE_USERS,
-  users,
+  users
 });
 export const updateUserId = (userId) => ({
   type: UPDATE_USER_ID,
-  userId,
+  userId
 });
 export const setStateLoaded = (stateLoaded) => ({
   type: STATE_LOADED,
-  stateLoaded,
+  stateLoaded
 });
 
 export const crossCheckKeepAlives = (keepAlives) => ({
   type: CROSS_CHECK_KEEP_ALIVES,
-  keepAlives,
+  keepAlives
 });
 
 export const setFilters = (filters) => ({
   type: SET_FILTERS,
-  filters,
+  filters
+});
+
+export const setEnabledFeatures = (enabledFeatures) => ({
+  type: SET_ENABLED_FEATURES,
+  enabledFeatures
+});
+
+export const clearEventSession = () => ({
+  type: CLEAR_EVENT_SESSION
 });

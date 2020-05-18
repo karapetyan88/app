@@ -16,12 +16,14 @@ import {
   getLiveGroups,
   getUsers,
   getParticipantsJoined,
+  getLiveGroupsOriginal,
 } from "../../Redux/eventSession";
 import { isJoinParticipantOpen, closeJoinParticipant, getJoinParticipantEntity } from "../../Redux/dialogs";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
 import _ from "lodash";
 import Alert from "@material-ui/lab/Alert";
 import { MAX_PARTICIPANTS_GROUP } from "../../Config/constants";
+import ParticipantAvatar from "../Misc/ParticipantAvatar";
 
 const useStyles = makeStyles((theme) => ({
   content: {
@@ -59,6 +61,9 @@ const useStyles = makeStyles((theme) => ({
     marginTop: theme.spacing(2),
     textAlign: "left",
   },
+  avatar: {
+    marginRight: theme.spacing(2),
+  },
 }));
 
 export default function (props) {
@@ -77,6 +82,7 @@ export default function (props) {
   const userSession = useSelector(getUserSession, shallowEqual);
   const availableParticipantsList = useSelector(getAvailableParticipantsList, shallowEqual);
   const liveGroups = useSelector(getLiveGroups, shallowEqual);
+  const liveGroupsOriginal = useSelector(getLiveGroupsOriginal, shallowEqual);
   const participantsJoined = useSelector(getParticipantsJoined, shallowEqual);
 
   const participantSession = React.useMemo(
@@ -159,7 +165,7 @@ export default function (props) {
       if (userInConferenceRoom) {
         setIsInConferenceRoom(false);
       }
-      joinConversation(sessionId, participantsJoined, liveGroups, userId, liveGroup.id, snackbar);
+      joinConversation(sessionId, participantsJoined, liveGroupsOriginal, userId, liveGroup.id, snackbar);
       handleClose();
     }
   };
@@ -179,11 +185,20 @@ export default function (props) {
           {participantInConversation && (
             <div className={classes.conversationWith}>
               <>
-                <Typography variant="button" color="primary">
-                  In a conversation with:
-                </Typography>
+                {liveGroup && !liveGroup.isRoom && (
+                  <Typography variant="button" color="primary">
+                    In a conversation with:
+                  </Typography>
+                )}
+
+                {liveGroup && liveGroup.isRoom && (
+                  <Typography variant="button" color="primary">
+                    In the room: {liveGroup.roomName}
+                  </Typography>
+                )}
                 {/* <Divider color="secondary" /> */}
                 {liveGroup &&
+                  !liveGroup.isRoom &&
                   liveGroup.participants &&
                   Object.values(liveGroup.participants).map((p) => {
                     if (p.id === participant.id) {
@@ -199,6 +214,26 @@ export default function (props) {
                       </div>
                     );
                   })}
+                {liveGroup && liveGroup.isRoom && liveGroup.participants && (
+                  <>
+                    <div style={{ display: "flex", marginTop: 16 }}>
+                      {Object.values(liveGroup.participants).map((p) => {
+                        if (p.id === participant.id) {
+                          return null;
+                        }
+                        let pDetails = users[p.id];
+                        if (!pDetails) {
+                          return null;
+                        }
+                        return (
+                          <div key={p.id} className={classes.avatar}>
+                            <ParticipantAvatar participant={pDetails} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
 
                 {canJoinConversation && (
                   <div>
@@ -209,13 +244,14 @@ export default function (props) {
                         className={classes.button}
                         onClick={handleJoinConversation}
                       >
-                        Join Conversation
+                        Join {liveGroup && liveGroup.isRoom ? "Room" : "Conversation"}
                       </Button>
                     </div>
                     {/* <Typography className={classes.hintText} variant="caption"> */}
                     {!userInConferenceRoom && !userInConversation && (
                       <Alert severity="info" className={classes.alert}>
-                        You will join this conversation video conferencing call
+                        You will join this {liveGroup && liveGroup.isRoom ? "room's" : "conversation's"} video
+                        conferencing call
                       </Alert>
                     )}
 

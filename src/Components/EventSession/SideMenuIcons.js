@@ -25,13 +25,21 @@ import {
   isChatOpen,
 } from "../../Redux/dialogs";
 import routes from "../../Config/routes";
-import ExitToAppIcon from "@material-ui/icons/ExitToApp";
-import { logout } from "../../Modules/userOperations";
-import { useHistory } from "react-router-dom";
+// import ExitToAppIcon from "@material-ui/icons/ExitToApp";
+// import { logout } from "../../Modules/userOperations";
+// import { useHistory } from "react-router-dom";
 import FeedbackIcon from "@material-ui/icons/GraphicEq";
-import { getSessionId, getEventSessionDetails, getUserId } from "../../Redux/eventSession";
-import { hideNotificationDot, toShowNotificationDot } from "../../Redux/chatMessages";
+import {
+  getSessionId,
+  getEventSessionDetails,
+  getUserId,
+} from "../../Redux/eventSession";
+import {
+  hideNotificationDot,
+  toShowNotificationDot,
+} from "../../Redux/chatMessages";
 import Badge from "@material-ui/core/Badge";
+import { trackEvent } from "../../Modules/analytics";
 
 // import { Badge } from "@material-ui/core";
 const useStyles = makeStyles((theme) => ({
@@ -58,42 +66,42 @@ export default function SideMenuIcons(props) {
   const userId = useSelector(getUserId);
   const eventSessionDetails = useSelector(getEventSessionDetails, shallowEqual);
 
-  const isOwner = React.useMemo(() => eventSessionDetails && eventSessionDetails.owner === userId, [
-    eventSessionDetails,
-    userId,
-  ]);
+  const isOwner = React.useMemo(
+    () => eventSessionDetails && eventSessionDetails.owner === userId,
+    [eventSessionDetails, userId]
+  );
   const showNotificationDot = useSelector(toShowNotificationDot);
 
   const openProfile = React.useCallback(() => {
-    window.analytics.track("SideMenu: Open profile clicked", { sessionId });
+    trackEvent("SideMenu: Open profile clicked", { sessionId });
     dispatch(openEditProfile());
   }, [dispatch, sessionId]);
 
   const openDetails = React.useCallback(() => {
-    window.analytics.track("SideMenu: Open event details clicked", { sessionId });
+    trackEvent("SideMenu: Open event details clicked", { sessionId });
     dispatch(openEventDetails());
   }, [dispatch, sessionId]);
 
   const openShareEvent = React.useCallback(() => {
-    window.analytics.track("SideMenu: Open share event clicked", { sessionId });
+    trackEvent("SideMenu: Open share event clicked", { sessionId });
     dispatch(openShare());
   }, [dispatch, sessionId]);
 
   const openFeedbackDialog = React.useCallback(() => {
-    window.analytics.track("SideMenu: Open event details clicked", { sessionId });
+    trackEvent("SideMenu: Open event details clicked", { sessionId });
     dispatch(openFeedback());
   }, [dispatch, sessionId]);
 
-  const history = useHistory();
+  // const history = useHistory();
 
   const toggleChatPane = React.useCallback(() => {
     if (chatOpen) {
-      window.analytics.track("SideMenu: Chat closed clicked", { sessionId });
+      trackEvent("SideMenu: Chat closed clicked", { sessionId });
       dispatch(closeChat());
     } else {
       dispatch(hideNotificationDot());
       dispatch(openChat());
-      window.analytics.track("SideMenu: Chat opened clicked", { sessionId });
+      trackEvent("SideMenu: Chat opened clicked", { sessionId });
     }
   }, [dispatch, chatOpen, sessionId]);
 
@@ -122,8 +130,10 @@ export default function SideMenuIcons(props) {
             <Tooltip
               title="Edit event"
               onClick={() => {
-                window.analytics.track("Edit event clicked", { sessionId });
-                window.open(window.open(routes.EDIT_EVENT_SESSION(sessionId), "_blank"));
+                trackEvent("Edit event clicked", { sessionId });
+                window.open(
+                  window.open(routes.EDIT_EVENT_SESSION(sessionId), "_blank")
+                );
               }}
             >
               <ListItem button>
@@ -140,7 +150,11 @@ export default function SideMenuIcons(props) {
         <Tooltip title="Chat" onClick={toggleChatPane}>
           <ListItem button>
             <ListItemIcon>
-              <Badge color="secondary" variant="dot" invisible={!showNotificationDot}>
+              <Badge
+                color="secondary"
+                variant="dot"
+                invisible={!showNotificationDot}
+              >
                 <ChatIcon color="primary" />
               </Badge>
             </ListItemIcon>
@@ -204,7 +218,7 @@ export default function SideMenuIcons(props) {
       </List>
       <Divider />
       <div style={{ flexGrow: 1 }}></div>
-      <List>
+      {/* <List>
         <Tooltip title="Exit Event">
           <ListItem
             button
@@ -218,7 +232,7 @@ export default function SideMenuIcons(props) {
             </ListItemIcon>
           </ListItem>
         </Tooltip>
-      </List>
+      </List> */}
     </div>
   );
 }

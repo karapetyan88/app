@@ -16,27 +16,34 @@ import GoToConferenceRoomDialog from "./GoToConferenceRoomDialog";
 import useMediaQuery from "@material-ui/core/useMediaQuery";
 import { useTheme } from "@material-ui/core/styles";
 import UserAvatar from "../Misc/UserAvatar";
-import { logout } from "../../Modules/userOperations";
 import routes from "../../Config/routes";
 // import DesktopMacIcon from "@material-ui/icons/DesktopMac";
 // import ConversationsIcon from "../../Assets/Icons/Conversations";
 import { useSelector, shallowEqual, useDispatch } from "react-redux";
-import { getSessionId, getUser, getUserGroup, getEventSessionDetails } from "../../Redux/eventSession";
+import {
+  getSessionId,
+  getUser,
+  getUserGroup,
+  getEventSessionDetails,
+  getFeatureDetails
+} from "../../Redux/eventSession";
 import { openEditProfile } from "../../Redux/dialogs";
+import { FEATURES } from "../../Modules/features";
+import { logout } from "../../Redux/account";
 
 // import routes from "../../Config/routes";
 const useStyles = makeStyles((theme) => ({
   root: {
-    boxShadow: "none",
+    boxShadow: "none"
   },
   flexGrow: {
-    flexGrow: 1,
+    flexGrow: 1
   },
   signOutButton: {
-    marginLeft: theme.spacing(1),
+    marginLeft: theme.spacing(1)
   },
   logo: {
-    width: 180,
+    width: 180
     // marginTop: theme.spacing(1)
   },
   button: {
@@ -44,11 +51,11 @@ const useStyles = makeStyles((theme) => ({
     float: "left",
     width: 135,
     textAlign: "center",
-    whiteSpace: "nowrap",
+    whiteSpace: "nowrap"
   },
   roomButtonsContainer: {
     margin: theme.spacing(0, 4, 0, 4),
-    minWidth: 318,
+    minWidth: 318
   },
   currentRoomContainer: {
     backgroundColor: theme.palette.secondary.main,
@@ -59,20 +66,21 @@ const useStyles = makeStyles((theme) => ({
     margin: theme.spacing(0, 2, 0, 1),
     padding: theme.spacing(0, 1),
     border: "1px solid " + theme.palette.secondary.main,
-    boxShadow: "0px 1px 5px 0px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 3px 1px -2px rgba(0,0,0,0.12)",
+    boxShadow:
+      "0px 1px 5px 0px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 3px 1px -2px rgba(0,0,0,0.12)",
     width: 135,
-    textAlign: "center",
+    textAlign: "center"
   },
   title: {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     overflow: "hidden",
-    display: "block",
+    display: "block"
   },
   avatarContainer: {
     position: "absolute",
-    right: theme.spacing(2),
-  },
+    right: theme.spacing(2)
+  }
 }));
 
 const RoomButton = ({ onClick, disabled, isCurrentRoom, children, icon }) => {
@@ -132,6 +140,17 @@ export default withRouter((props) => {
   const sessionId = useSelector(getSessionId);
   const eventSessionDetails = useSelector(getEventSessionDetails, shallowEqual);
 
+  const miniPlayerProperties = useSelector(
+    getFeatureDetails(FEATURES.MINI_PLAYER),
+    shallowEqual
+  );
+
+  const isMiniPlayerEnabled = React.useMemo(
+    () =>
+      miniPlayerProperties ? miniPlayerProperties.enabled === true : false,
+    [miniPlayerProperties]
+  );
+
   // isInNetworkingCall,
   //   isNetworkingAvailable,
   function handleMenuClose() {
@@ -143,7 +162,8 @@ export default withRouter((props) => {
   }
 
   const handleLogoutClick = () => {
-    logout(sessionId);
+    // logoutDb(sessionId, userGroup);
+    dispatch(logout(sessionId, userGroup));
     handleMenuClose();
     if (sessionId) {
       history.push(routes.EVENT_SESSION(sessionId));
@@ -159,7 +179,14 @@ export default withRouter((props) => {
   };
 
   const handleNetworkingRoomClick = () => {
-    setGoToNetworkingDialog(true);
+    if (
+      isMiniPlayerEnabled &&
+      eventSessionDetails.conferenceVideoType !== "JITSI"
+    ) {
+      setIsInConferenceRoom(false);
+    } else {
+      setGoToNetworkingDialog(true);
+    }
   };
 
   const handleEditProfileClick = () => {
@@ -195,7 +222,12 @@ export default withRouter((props) => {
           <div className={classes.flexGrow}>
             {!isMobile && eventSessionDetails && (
               // <div className={classes.title}>
-              <Typography variant="h5" align="left" style={{ fontWeight: "lighter" }} className={classes.title}>
+              <Typography
+                variant="h5"
+                align="left"
+                style={{ fontWeight: "lighter" }}
+                className={classes.title}
+              >
                 {eventSessionDetails.title}
               </Typography>
             )}
@@ -208,11 +240,11 @@ export default withRouter((props) => {
               anchorEl={menuAnchorEl}
               anchorOrigin={{
                 vertical: "top",
-                horizontal: "center",
+                horizontal: "center"
               }}
               transformOrigin={{
                 vertical: "bottom",
-                horizontal: "center",
+                horizontal: "center"
               }}
               keepMounted
               open={openMenu}

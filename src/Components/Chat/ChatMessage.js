@@ -13,24 +13,24 @@ const useStyles = makeStyles((theme) => ({
     padding: theme.spacing(1.5, 1.5),
     "&:hover": {
       backgroundColor: "rgba(28, 71, 98, 0.08)", //"#e0f3ff", //"#e4ffe4",
-      borderRadius: 0,
-    },
+      borderRadius: 0
+    }
   },
   messageContainer: {
     flexGrow: 1,
-    width: "calc(100% - 56px)",
+    width: "calc(100% - 56px)"
   },
   avatar: {
-    margin: theme.spacing(0, 1, 0, 0),
+    margin: theme.spacing(0, 1, 0, 0)
   },
   userName: {
     padding: 0,
     "text-transform": "none",
     fontSize: "1rem",
     "&:hover": {
-      cursor: "pointer",
-    },
-  },
+      cursor: "pointer"
+    }
+  }
 }));
 
 const componentDecorator = (href, text, key) => (
@@ -48,7 +48,7 @@ export default (props) => {
 
   const messageUser = React.useMemo(() => users[message.userId], [
     users,
-    message.userId,
+    message.userId
   ]);
   const sentDate = React.useMemo(
     () => (message.sentDate ? moment(message.sentDate.toDate()) : null),

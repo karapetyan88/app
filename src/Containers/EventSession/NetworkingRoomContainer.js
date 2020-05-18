@@ -4,19 +4,30 @@ import { makeStyles } from "@material-ui/core/styles";
 import { leaveCall } from "../../Modules/eventSessionOperations";
 
 import { useSelector, shallowEqual } from "react-redux";
-import { getUser, getUserGroup, getSessionId, getUserId } from "../../Redux/eventSession";
+import {
+  getUser,
+  getUserGroup,
+  getSessionId,
+  getUserId,
+  getEventSessionDetails
+} from "../../Redux/eventSession";
 import JitsiContext from "./JitsiContext";
+import { trackPage, trackEvent } from "../../Modules/analytics";
+import {
+  getJistiServer,
+  getJitsiOptions,
+  getJistiDomain
+} from "../../Modules/jitsi";
 const useStyles = makeStyles((theme) => ({
   root: {
     width: "100%",
-    height: "100%",
-  },
+    height: "100%"
+  }
 }));
 
-export default () => {
+const NetworkingRoomContainer = () => {
   const classes = useStyles();
   const { jitsiApi, setJitsiApi } = useContext(JitsiContext);
-  const [loaded, error] = useScript("https://meet.jit.si/external_api.js");
   const [lastRoomLoaded, setLastRoomLoaded] = useState(null);
 
   const userId = useSelector(getUserId);
@@ -24,10 +35,18 @@ export default () => {
   const currentGroup = useSelector(getUserGroup, shallowEqual);
   const sessionId = useSelector(getSessionId);
 
+  const eventSessionDetails = useSelector(getEventSessionDetails, shallowEqual);
+
+  const [loaded, error] = useScript(
+    (currentGroup && currentGroup.customJitsiServer
+      ? getJistiServer(currentGroup)
+      : getJistiServer(eventSessionDetails)) + "external_api.js"
+  );
+
   useEffect(() => {
-    window.analytics.page("NetworkingRoom/" + sessionId);
-    window.analytics.track("Entered Networking Room", {
-      eventSessionId: sessionId,
+    trackPage("NetworkingRoom/" + sessionId);
+    trackEvent("Entered Networking Room", {
+      eventSessionId: sessionId
     });
   }, [sessionId]);
 
@@ -39,7 +58,7 @@ export default () => {
     let prefix = process.env.REACT_APP_JITSI_ROOM_PREFIX;
     let prefixStr = prefix !== undefined ? `${prefix}-` : "";
 
-    const roomName = prefixStr + currentGroup.videoConferenceAddress.replace("https://meet.jit.si/", "");
+    const roomName = prefixStr + currentGroup.videoConferenceAddress;
 
     if (loaded && lastRoomLoaded !== roomName) {
       // dispose existing jitsi
@@ -48,45 +67,48 @@ export default () => {
         jitsiApi.dispose();
       }
 
-      const domain = "meet.jit.si";
-      const options = {
-        roomName: roomName,
-        parentNode: document.querySelector("#conference-container"),
-        interfaceConfigOverwrite: {
-          // filmStripOnly: true,
-          enableWelcomePage: false,
-          DEFAULT_REMOTE_DISPLAY_NAME: "Veertlier",
-          SHOW_CHROME_EXTENSION_BANNER: false,
-        },
-      };
+      const domain =
+        currentGroup && currentGroup.customJitsiServer
+          ? getJistiDomain(currentGroup)
+          : getJistiDomain(eventSessionDetails);
+
+      const options = getJitsiOptions(
+        roomName,
+        document.querySelector("#conference-container")
+      );
+
       /*eslint-disable no-undef*/
       const api = new JitsiMeetExternalAPI(domain, options);
       /*eslint-enable no-undef*/
       api.executeCommand("displayName", user.firstName + " " + user.lastName);
-      api.executeCommand("subject", "Veertly | Networking Conversation");
+      if (currentGroup.isRoom) {
+        api.executeCommand("subject", `Veertly | ${currentGroup.roomName}`);
+      } else {
+        api.executeCommand("subject", "Veertly | Networking Conversation");
+      }
 
       if (user.avatarUrl) {
         api.executeCommand("avatarUrl", user.avatarUrl);
       }
       api.addEventListener("videoConferenceLeft", (event) => {
         // console.log("videoConferenceLeft: ", event);
-        window.analytics.track("[Jitsi] Left Call (videoConferenceLeft)", {
+        trackEvent("[Jitsi] Left Call (videoConferenceLeft)", {
           eventSessionId: sessionId,
-          roomName,
+          roomName
         });
         handleCallEnded();
       });
       api.addEventListener("readyToClose", (event) => {
         // console.log("readyToClose: ", event);
-        window.analytics.track("[Jitsi] Left Call (readyToClose)", {
+        trackEvent("[Jitsi] Left Call (readyToClose)", {
           eventSessionId: sessionId,
-          roomName,
+          roomName
         });
         handleCallEnded();
       });
-      window.analytics.track("[Jitsi] Joined Call", {
+      trackEvent("[Jitsi] Joined Call", {
         eventSessionId: sessionId,
-        roomName,
+        roomName
       });
       setLastRoomLoaded(roomName);
       setJitsiApi(api);
@@ -99,7 +121,17 @@ export default () => {
       //   jitsiApi.dispose();
       // }
     };
-  }, [loaded, currentGroup, sessionId, handleCallEnded, jitsiApi, lastRoomLoaded, setJitsiApi, user]);
+  }, [
+    loaded,
+    currentGroup,
+    sessionId,
+    handleCallEnded,
+    jitsiApi,
+    lastRoomLoaded,
+    setJitsiApi,
+    user,
+    eventSessionDetails
+  ]);
 
   if (error) {
     console.log(error);
@@ -119,3 +151,5 @@ export default () => {
     return <div id="conference-container" className={classes.root} />;
   }
 };
+// NetworkingRoomContainer.whyDidYouRender = true;
+export default NetworkingRoomContainer;
